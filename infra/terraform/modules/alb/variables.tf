@@ -27,7 +27,7 @@ variable "container_port" {
 variable "health_check_path" {
   description = "Health check path"
   type        = string
-  default     = "/health"
+  default     = "/api/healthz"
 }
 
 variable "certificate_arn" {
