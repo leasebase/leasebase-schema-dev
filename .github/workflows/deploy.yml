@@ -9,7 +9,7 @@ on:
       - 'release/*'
 
 env:
-  AWS_REGION: us-west-1
+  AWS_REGION: us-west-2
   ECR_REPOSITORY_PREFIX: leasebase
   ECS_CLUSTER_PREFIX: leasebase
   ECS_SERVICE_SUFFIX: api-service
@@ -48,7 +48,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets[format('AWS_DEPLOY_ROLE_{0}', steps.env.outputs.environment)] }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
