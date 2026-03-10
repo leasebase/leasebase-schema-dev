@@ -1,3 +1,13 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# HISTORICAL — This Dockerfile builds the Next.js web frontend, NOT the NestJS API.
+#
+# It was placed here during early development before leasebase-web had its own
+# Dockerfile. The canonical web Dockerfile now lives in leasebase-web/Dockerfile.
+# The NestJS API Dockerfile lives in services/api/Dockerfile.
+#
+# This file is retained for historical reference only. Do not use it.
+# ──────────────────────────────────────────────────────────────────────────────
+
 # Multi-stage Dockerfile for Leasebase Web (Next.js + Node.js)
 
 # 1) Builder image: install deps and build the app

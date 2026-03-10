@@ -1,17 +1,35 @@
 # Leasebase Backend Monorepo
 
+> **⚠️ This repository is NOT the production backend.**
+>
+> Production API traffic is served by the **v2 microservices platform**:
+> Web → CloudFront → API Gateway → BFF → domain microservices.
+>
+> This repository exists for:
+> - **Prisma schema & migrations** — canonical DB schema definition
+> - **Seed scripts** — demo/test data population
+> - **Local development API** — NestJS on port 4000, used by `leasebase-web` during local dev
+>
+> The deploy workflow (`deploy.yml`) targets deprecated v1 infrastructure and is **disabled**.
+>
+> For production deployment, see the monorepo (`leasebase_all/`) and IaC (`leasebase-iac/`).
+
 Real Estate Leasing platform for property managers, owners/landlords, and tenants.
 
-This repository is the **backend monorepo** for Leasebase. It contains:
-- The backend API (NestJS + Prisma + PostgreSQL)
-- Shared backend infrastructure and documentation
-- Multi‑agent tooling to help plan and execute backend‑centric and cross‑repo changes
+This repository contains:
+- The backend API for **local development** (NestJS + Prisma + PostgreSQL)
+- Prisma schema and migrations (canonical DB schema definition)
+- Seed scripts for demo and test data
+- Shared backend documentation
 
 **Frontend code (web and mobile)** lives in separate repositories:
 - `leasebase-web` – standalone web client
 - `leasebase-mobile` – standalone mobile client
 
-If you want to work on Leasebase locally or deploy the backend to AWS, this is the **source of truth**.
+For the **production runtime**, see:
+- `leasebase_all/` – deployment monorepo with CI/CD workflows
+- `leasebase-iac/` – Terraform infrastructure (v2 microservices on ECS Fargate)
+- `leasebase-bff-gateway/` – API composition layer routing to domain microservices
 
 ---
 
@@ -250,152 +268,23 @@ npm run lint:web
 
 ---
 
-## Backend deployment to AWS
+## Production deployment (not from this repo)
 
-The backend API lives in `services/api` and uses:
-- NestJS (HTTP server)
-- Prisma (PostgreSQL ORM)
-- PostgreSQL (`DATABASE_URL`)
-- AWS Cognito for authentication (see **Authentication** section above)
+> **This repository does not deploy to production.** The deploy workflow (`deploy.yml`) targets
+> deprecated v1 ECS infrastructure and is disabled (`if: false`).
 
-### Infrastructure layout
+For production deployment, refer to:
 
-This repository now contains **bootstrap-only** Terraform under:
+- **Infrastructure**: `leasebase-iac/` — Terraform modules for the v2 platform (10 ECS Fargate
+  microservices, Aurora PostgreSQL, API Gateway, CloudFront).
+  See `leasebase-iac/docs/DEPLOYMENT_STANDARDS.md` for the canonical deployment path.
+- **CI/CD**: `leasebase_all/.github/workflows/dev-deploy.yml` — monorepo workflow that builds and
+  deploys individual microservices on push to `develop`.
+- **Service configs**: `leasebase_all/services/<service>/service.yaml` — per-service ECR, ECS, and
+  task family definitions.
 
-- `infra/terraform/bootstrap` – used to bootstrap AWS accounts (e.g., IAM roles, GitHub OIDC provider, and other shared prerequisites).
-
-The **full application infrastructure** (VPC, RDS, ECS/Fargate services, ALB, S3/CloudFront for web, etc.) is defined in the separate **`leasebase-iac`** repository. That repo is the source of truth for environment-specific stacks (dev/QA/prod).
-
-Each environment is expected to run in its **own AWS account**. You select the account via AWS credentials or `AWS_PROFILE` when running Terraform in `leasebase-iac`.
-
-### 1. Overview of what Terraform creates
-
-For each environment (dev, QA, prod), Terraform provisions:
-
-- Networking
-  - A VPC with environment-specific CIDR (e.g., `10.10.0.0/16` for dev, `10.20.0.0/16` for QA, `10.30.0.0/16` for prod)
-  - Two public subnets and an internet gateway
-- Database (backend)
-  - A PostgreSQL RDS instance (size and storage vary by env)
-- Backend API
-  - ECS Fargate cluster, task definition, and service
-  - Application Load Balancer (ALB) with HTTP listener and health checks
-- Web frontend
-  - S3 bucket for static assets
-  - CloudFront distribution in front of the S3 bucket
-
-The web and mobile repos then point at the appropriate API + web endpoints for each environment.
-
-### 2. Deploy dev environment
-
-From the backend repo:
-
-```bash path=null start=null
-cd infra/terraform/envs/dev
-
-# Select the dev AWS account
-export AWS_PROFILE=leasebase-dev
-
-# Required sensitive values (example: use tfvars or env vars in practice)
-export TF_VAR_db_password="<dev-db-password>"
-export TF_VAR_api_database_url="postgresql://leasebase:<dev-db-password>@<dev-rds-endpoint>:5432/leasebase_dev?schema=public"
-
-# Non-sensitive values
-export TF_VAR_api_container_image="<dev-api-ecr-uri>:latest"
-export TF_VAR_web_bucket_suffix="dev-<account-id-or-unique>"
-
-terraform init
-terraform plan
-terraform apply
-```
-
-After apply completes, Terraform outputs (among others):
-
-- `api_alb_dns_name` – base URL for the API in this environment
-- `web_cloudfront_domain` – CloudFront domain serving the web client
-
-Use these in `leasebase-web` and `leasebase-mobile` as the base URLs for dev.
-
-### 3. Deploy QA and production environments
-
-Repeat the same pattern in the QA and prod env folders, using the correct AWS account/profile and values:
-
-```bash path=null start=null
-# QA
-cd infra/terraform/envs/qa
-export AWS_PROFILE=leasebase-qa
-# Set TF_VAR_db_password, TF_VAR_api_database_url, TF_VAR_api_container_image, TF_VAR_web_bucket_suffix
-terraform init
-terraform apply
-
-# Production
-cd ../prod
-export AWS_PROFILE=leasebase-prod
-# Set TF_VAR_db_password, TF_VAR_api_database_url, TF_VAR_api_container_image, TF_VAR_web_bucket_suffix
-terraform init
-terraform apply
-```
-
-Environment-specific `variables.tf` files in each folder control sizes (RDS instance class, storage, ECS task counts) and can be tuned independently for dev, QA, and prod.
-
-### 4. Deploying new API/web versions
-
-Once the infrastructure is in place:
-
-- **Backend API:**
-  - Build and push a new Docker image for `services/api` to ECR.
-  - Update `TF_VAR_api_container_image` (or the corresponding value in your CI pipeline) and re-run `terraform apply`, or
-  - Use a deployment tool that updates the ECS service to point at the new task definition.
-
-- **Web frontend:**
-  - In `leasebase-web`, build the static site and sync it to the S3 bucket output by Terraform (for each env):
-
-    ```bash path=null start=null
-    # In ../leasebase-web
-    npm run build
-    aws s3 sync ./out s3://<web_bucket_name-from-terraform>/ --delete
-    ```
-
-  - The CloudFront distribution created by Terraform serves the updated assets; you can add cache invalidation as needed.
-
-### 5. CI/CD Automated Deployments
-
-This repository includes GitHub Actions workflows for automated deployments:
-
-- **Development** (`Develop` branch → Dev AWS account)
-  - Workflow: `.github/workflows/deploy-develop.yml`
-  - Triggers on push to `Develop` branch
-  - Deploys to dev ECS cluster with Fargate Spot (cost optimized)
-
-- **Production** (`release` branch → Prod AWS account)
-  - Workflow: `.github/workflows/deploy-production.yml`
-  - Triggers on push to `release` branch
-  - Deploys to prod ECS cluster with Fargate (high availability)
-
-#### GitHub Secrets Required
-
-For **Development** environment:
-- `AWS_DEV_ROLE_ARN` – IAM role ARN from `terraform output github_actions_role_arn`
-- `AWS_DEV_SUBNETS` – Subnet IDs from `terraform output public_subnet_ids`
-- `AWS_DEV_SECURITY_GROUP` – Security group from `terraform output ecs_security_group_id`
-
-For **Production** environment:
-- `AWS_PROD_ROLE_ARN` – IAM role ARN from `terraform output github_actions_role_arn`
-- `AWS_PROD_SUBNETS` – Subnet IDs from `terraform output private_subnet_ids`
-- `AWS_PROD_SECURITY_GROUP` – Security group from `terraform output ecs_security_group_id`
-
-#### GitHub Environments
-
-Create two environments in GitHub repository settings:
-1. `development` – No protection rules required
-2. `production` – Recommended: require reviewers for deployment approval
-
-#### OIDC Authentication
-
-The workflows use GitHub OIDC for AWS authentication (no long-lived credentials). The Terraform configuration creates:
-- OIDC identity provider in each AWS account
-- IAM role with trust policy for GitHub Actions
-- Least-privilege permissions for ECR, ECS, S3, and CloudFront
+The bootstrap-only Terraform in `infra/terraform/bootstrap` remains useful for initial AWS account
+setup (IAM roles, OIDC provider).
 
 ---
 

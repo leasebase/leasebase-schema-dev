@@ -1,122 +1,94 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+This file provides guidance to AI agents (Warp, Cursor, Copilot, etc.) when working with code in this repository.
 
-## Repository scope and related projects
+> **⚠️ This repository is NOT the production backend.**
+>
+> Production API traffic is served by the **v2 microservices platform**:
+> Web → CloudFront → API Gateway → BFF → domain microservices.
+>
+> This repository exists for:
+> - **Prisma schema & migrations** — canonical DB schema definition
+> - **Seed scripts** — demo/test data population
+> - **Local development API** — NestJS on port 4000, used by `leasebase-web` during local dev
+>
+> The deploy workflow (`deploy.yml`) targets deprecated v1 infrastructure and is **disabled**.
 
-- This repo is the **standalone web frontend** for the Leasebase platform.
-- It is **frontend-only**:
-  - No backend API code lives here.
-  - No mobile code lives here.
-- The web client talks to the backend API running from the separate backend repo:
-  - Backend/API: `../leasebase` (a.k.a. `leasebase-backend`), `services/api` (NestJS + Prisma + PostgreSQL).
-  - Mobile app: `../leasebase-mobile`.
-- All **web/frontend concerns** (pages, components, styling, web routing, web-only utilities) belong here once the app is bootstrapped.
-- Backend services, database schema/migrations, and infrastructure code live in `../leasebase` and should not be added to this repo.
+## Repository scope
 
-For system-level and AWS architecture, consult the backend monorepo:
-- `../leasebase/README.md` – backend & web deployment to AWS (per account).
-- `../leasebase/docs/architecture.md` – overall system and AWS architecture.
+- This repo is the **backend monorepo** for local development and schema management.
+- The NestJS API in `services/api` runs on port 4000 and serves `leasebase-web` during local dev.
+- **Production traffic does NOT flow through this repo.** Production is served by 10 ECS Fargate
+  microservices deployed from `leasebase_all/`.
 
-## Current state of this repo
+### What belongs here
 
-- This repository is bootstrapped as a **Next.js (TypeScript) + Tailwind CSS** app using the App Router (`app/`).
-- A concrete `package.json` exists with scripts for dev, build, tests, and OpenAPI client generation.
-- The web UI will be deployed as static/SSR assets (Next.js) behind AWS infrastructure provisioned from the backend repo.
-- The Next.js build output directory is the default `.next/`.
+- Prisma schema changes and migrations (`services/api/prisma/`)
+- Seed scripts for demo and test data (`services/api/prisma/seed-*.ts`)
+- NestJS controllers and services for **local development use**
+- Documentation about the data model and local dev workflow
 
-If you materially change the frontend stack or core commands, **update this file and the README** with precise commands and paths.
+### What does NOT belong here
+
+- **New production API endpoints** — these go in the appropriate `leasebase-*-service` repo
+- Infrastructure code — lives in `leasebase-iac/`
+- Deployment workflows — live in `leasebase_all/.github/workflows/`
+- Frontend code — lives in `leasebase-web/` and `leasebase-mobile/`
+
+## Related repositories
+
+- `leasebase_all/` — deployment monorepo (CI/CD, service.yaml configs)
+- `leasebase-iac/` — Terraform infrastructure (v2 microservices platform)
+- `leasebase-bff-gateway/` — API composition layer (BFF pattern)
+- `leasebase-web/` — Next.js web frontend
+- `leasebase-*-service/` — domain microservices (auth, property, lease, tenant, maintenance, payments, notification, document, reporting)
+
+For system architecture, see `leasebase_all/ARCHITECTURE.md`.
 
 ## Local development workflow
 
-A full local environment (API + web + DB) uses **two repos side by side**:
+A full local environment uses this repo for the API + DB:
 
-- Backend/API: `../leasebase`
-- Web frontend: `./` (this repo, `leasebase-web`)
-
-### 1. Run the backend API locally (from `../leasebase`)
-
-These commands are run in the backend monorepo and are included here because the web client depends on that API:
-
-```bash path=null start=null
-cd ../leasebase
+```bash
+docker-compose up -d db
 npm install
-# Start or provision the DB (see ../leasebase docs for the exact command, e.g. docker-compose up -d db)
 npm run migrate
 npm run seed
-npm run dev:api    # API on http://localhost:4000 (check ../leasebase for the actual port)
+npm run dev:api    # API on http://localhost:4000
 ```
 
-Always treat the backend repo as the source of truth for API ports, env vars, and DB setup.
+Then start the web frontend from `../leasebase-web`:
 
-### 2. Run the web frontend locally (this repo)
-
-Once this repository is bootstrapped with a concrete frontend framework and `package.json`:
-
-```bash path=null start=null
+```bash
 cd ../leasebase-web
 npm install
-npm run dev        # starts the web dev server
+npm run dev        # Web on http://localhost:3000, talks to localhost:4000
 ```
-
-Notes:
-- The exact dev command (`npm run dev` vs something else) must match the scripts defined in this repo's `package.json` once created.
-- Configure the API base URL via an environment file (likely `.env.local` or similar), pointing at the Leasebase API (local, dev, or prod), e.g. `http://localhost:4000`.
 
 ## Build, test, and lint commands
 
-Authoritative scripts live in `package.json`. Current expectations:
+Authoritative scripts live in `package.json`:
 
-### Build
-
-```bash path=null start=null
-cd ../leasebase-web
-npm install
-npm run build
+```bash
+npm run dev:api     # Start NestJS API in watch mode (port 4000)
+npm test            # Run tests
+npm run test:api    # Run API-only tests
+npm run lint        # Lint
+npm run lint:api    # Lint API-only
+npm run migrate     # Apply Prisma migrations
+npm run seed        # Seed the database
 ```
 
-- Next.js uses the default `.next/` build output directory.
+## How agents should reason about changes
 
-### Dev server
-
-```bash path=null start=null
-cd ../leasebase-web
-npm install
-npm run dev
-```
-
-### Tests
-
-- Unit/component tests use Jest + Testing Library:
-
-```bash path=null start=null
-cd ../leasebase-web
-npm test           # run Jest test suite
-npm run test:watch # optional watch mode
-```
-
-- Minimal Playwright E2E smoke tests:
-
-```bash path=null start=null
-cd ../leasebase-web
-npm run test:e2e
-```
-
-### Linting / formatting
-
-- ESLint is configured via `eslint-config-next`:
-
-```bash path=null start=null
-cd ../leasebase-web
-npm run lint
-```
-
-## How future agents should reason about changes
-
-- Keep a **strict separation of concerns** between this repo (web UI) and the backend repo (`../leasebase`):
-  - Web-only logic, client-side routing, and UI state live here.
-  - Business logic that clearly belongs to the backend (authorization, data validation, persistence, heavy computations) stays in the backend service.
-- If a change spans both frontend and backend:
-  - Coordinate with the backend code in `../leasebase/services/api` and its schema/migrations.
-  - Make sure any API contract changes (types, DTOs, error shapes) are reflected in both repos.
-- When in doubt about infrastructure, deployment pipelines, or API shape, prefer **reading and aligning with the backend repo docs** rather than guessing from this repository alone.
+1. **Schema changes** (Prisma models, migrations) are appropriate here. They affect all microservices
+   that query the same database.
+2. **Seed scripts** for demo/test data are appropriate here.
+3. **New production API endpoints** must go in the appropriate `leasebase-*-service` repo, NOT here.
+4. **Local-dev-only controllers** (e.g., demo login, dev-bypass endpoints) are appropriate here.
+5. When modifying the Prisma schema, ensure the change is compatible with both:
+   - The NestJS monolith (uses Prisma ORM)
+   - The v2 microservices (use raw SQL via `@leasebase/service-common`)
+6. For infrastructure, deployment, or production API questions, consult:
+   - `leasebase-iac/docs/DEPLOYMENT_STANDARDS.md`
+   - `leasebase_all/ARCHITECTURE.md`
