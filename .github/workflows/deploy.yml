@@ -1,21 +1,38 @@
-name: Deploy API
+# ──────────────────────────────────────────────────────────────────────────────
+# DISABLED — Deployment workflow for legacy v1 monolith infrastructure.
+#
+# Disabled because LeaseBase now runs on the v2 microservices platform.
+#
+# This was the legacy v1 deploy pipeline that targeted:
+#   - ECR repos:  leasebase-{env}-api          (v1 naming)
+#   - Task defs:  leasebase-{env}-api-task      (v1 naming)
+#   - Services:   leasebase-{env}-api-service   (v1 naming)
+#   - Clusters:   leasebase-{env}-cluster       (v1 naming)
+#
+# The canonical deployment path is now the monorepo (leasebase_all):
+#   - Workflow:   .github/workflows/dev-deploy.yml
+#   - Scripts:    scripts/build_push.sh + scripts/deploy_ecs.sh
+#   - Config:     services/<service>/service.yaml
+#   - Naming:     leasebase-{env}-v2-*
+#   - Region:     us-west-2 (enforced by assert_region guardrails)
+#
+# History:
+#   - Created:    2026-02-08
+#   - Last success: 2026-02-09 (deployed to us-west-1, v1 resources)
+#   - Failing since: 2026-03-05 (TS compilation errors in Docker build)
+#   - Disabled:   2026-03-10 (v2 microservices are the production runtime)
+#
+# See: leasebase-iac/docs/DEPLOYMENT_STANDARDS.md
+# ──────────────────────────────────────────────────────────────────────────────
+name: '[DISABLED] Deploy API (v1 legacy)'
 
-on:
-  push:
-    branches:
-      - develop
-      - qa
-      - main
-      - 'release/*'
-
-env:
-  AWS_REGION: us-west-2
-  ECR_REPOSITORY_PREFIX: leasebase
-  ECS_CLUSTER_PREFIX: leasebase
-  ECS_SERVICE_SUFFIX: api-service
+# No automatic triggers. Manual dispatch only (and blocked by if: false below).
+on: workflow_dispatch
 
 jobs:
   deploy:
+    # Permanently disabled — do not remove this guard.
+    if: false
     name: Build and Deploy API
     runs-on: ubuntu-latest
     permissions:
@@ -49,7 +66,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-west-2
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -69,8 +86,8 @@ jobs:
           file: services/api/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PREFIX }}-${{ steps.env.outputs.environment }}-api:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PREFIX }}-${{ steps.env.outputs.environment }}-api:latest
+            ${{ steps.login-ecr.outputs.registry }}/leasebase-${{ steps.env.outputs.environment }}-api:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/leasebase-${{ steps.env.outputs.environment }}-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -78,7 +95,7 @@ jobs:
         env:
           ENV: ${{ steps.env.outputs.environment }}
         run: |
-          TASK_DEF="${ECS_CLUSTER_PREFIX}-${ENV}-api-task"
+          TASK_DEF="leasebase-${ENV}-api-task"
           aws ecs describe-task-definition \
             --task-definition $TASK_DEF \
             --query 'taskDefinition' \
@@ -93,7 +110,7 @@ jobs:
         with:
           task-definition: new-task-def.json
           container-name: api
-          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_PREFIX }}-${{ steps.env.outputs.environment }}-api:${{ github.sha }}
+          image: ${{ steps.login-ecr.outputs.registry }}/leasebase-${{ steps.env.outputs.environment }}-api:${{ github.sha }}
 
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
@@ -101,7 +118,7 @@ jobs:
           ENV: ${{ steps.env.outputs.environment }}
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_CLUSTER_PREFIX }}-${{ steps.env.outputs.environment }}-${{ env.ECS_SERVICE_SUFFIX }}
-          cluster: ${{ env.ECS_CLUSTER_PREFIX }}-${{ steps.env.outputs.environment }}-cluster
+          service: leasebase-${{ steps.env.outputs.environment }}-api-service
+          cluster: leasebase-${{ steps.env.outputs.environment }}-cluster
           wait-for-service-stability: ${{ steps.env.outputs.environment == 'prod' }}
 
