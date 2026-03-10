@@ -84,6 +84,18 @@ export class AuthController {
   }
 
   @Public()
+  @Post('demo-login')
+  @ApiOperation({ summary: 'Quick demo login (dev/UAT only, requires DEV_AUTH_BYPASS=true)' })
+  @ApiOkResponse({ type: CurrentUserDto, description: 'Demo user profile' })
+  @ApiBadRequestResponse({ description: 'Demo login not available or demo data not seeded' })
+  async demoLogin(
+    @Body() body: { role?: 'OWNER' | 'ORG_ADMIN' },
+  ): Promise<CurrentUserDto> {
+    const role = body.role ?? 'OWNER';
+    return this.authService.demoLogin(role) as Promise<CurrentUserDto>;
+  }
+
+  @Public()
   @Post('resend-confirmation')
   @ApiOperation({ summary: 'Resend email verification code to a user' })
   @ApiOkResponse({ type: MessageResponseDto })
