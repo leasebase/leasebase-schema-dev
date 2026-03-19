@@ -1,21 +1,26 @@
-# Leasebase Backend Monorepo
+# Leasebase Schema Dev
 
-> **⚠️ This repository is NOT the production backend.**
+> **⚠️ TRANSITIONAL REPOSITORY — NOT THE PRODUCTION BACKEND**
 >
-> Production API traffic is served by the **v2 microservices platform**:
-> Web → CloudFront → API Gateway → BFF → domain microservices.
+> This repo is **transitional** and will be deprecated once all v2 microservices
+> fully own their own schemas and local dev tooling.
 >
-> This repository exists for:
+> **Production API traffic** is served by the **v2 microservices platform**:
+> Web → CloudFront → API Gateway → BFF → 10 Express domain microservices on ECS Fargate.
+>
+> **This repository exists only for:**
 > - **Prisma schema & migrations** — canonical DB schema definition
 > - **Seed scripts** — demo/test data population
-> - **Local development API** — NestJS on port 4000, used by `leasebase-web` during local dev
+> - **Local development API** — NestJS on port 4000, used by `leasebase-web` and `leasebase-mobile` during local dev
 >
 > The deploy workflow (`deploy.yml`) targets deprecated v1 infrastructure and is **disabled**.
 >
-> For production deployment, see the monorepo (`leasebase_all/`) and IaC (`leasebase-iac/`).
+> For the canonical system architecture, see `leasebase_all/SYSTEM-OF-RECORD.md`.
+> For production deployment, see `leasebase_all/` and `leasebase-iac/`.
 
-Real Estate Leasing platform for property managers, owners/landlords, and tenants.
+<!-- legacy -->
 
+Real Estate Leasing platform for owners/landlords and tenants.
 This repository contains:
 - The backend API for **local development** (NestJS + Prisma + PostgreSQL)
 - Prisma schema and migrations (canonical DB schema definition)

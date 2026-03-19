@@ -1,5 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+
+/** Allowed signup user types sent by the web registration form. */
+export enum SignupUserType {
+  OWNER = 'OWNER',
+  PROPERTY_MANAGER = 'PROPERTY_MANAGER',
+}
 
 export class RegisterDto {
   @ApiProperty({ description: 'User email address', example: 'user@example.com' })
@@ -22,4 +28,13 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   lastName!: string;
+
+  @ApiPropertyOptional({
+    description: 'Signup user type / intended role',
+    enum: SignupUserType,
+    example: 'OWNER',
+  })
+  @IsOptional()
+  @IsEnum(SignupUserType)
+  userType?: SignupUserType;
 }

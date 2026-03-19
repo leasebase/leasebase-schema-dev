@@ -13,7 +13,12 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
-    "seed": "ts-node --project tsconfig.json prisma/seed.ts"
+    "seed": "ts-node --project tsconfig.json prisma/seed.ts",
+    "seed:reset-demo": "ts-node --project tsconfig.json prisma/seed-reset-demo.ts",
+    "seed:owner-demo": "ts-node --project tsconfig.json prisma/seed-owner-demo.ts",
+    "seed:demo-owner": "npm run seed:reset-demo && npm run seed:owner-demo",
+    "seed:validate-demo": "ts-node --project tsconfig.json prisma/validate-owner-demo.ts",
+    "seed:validate-demo-api": "ts-node --project tsconfig.json prisma/validate-owner-demo-api.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.500.0",

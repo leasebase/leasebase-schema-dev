@@ -13,7 +13,7 @@ This document describes what the containerized `leasebase-web` app expects from 
 ### Network
 
 - Outbound HTTP/HTTPS connectivity to the Leasebase API at `NEXT_PUBLIC_API_BASE_URL`.
-- (Optional) Access to external services referenced by the backend (handled by `../leasebase`).
+- (Optional) Access to external services referenced by the backend microservices.
 
 ### Environment variables
 

@@ -9,21 +9,36 @@ datasource db {
 
 enum OrganizationType {
   LANDLORD
-  PM_COMPANY
 }
 
 enum UserRole {
-  ORG_ADMIN
-  PM_STAFF
   OWNER
   TENANT
 }
 
 enum LeaseStatus {
   DRAFT
+  ASSIGNED
+  INVITED
+  ACKNOWLEDGED
   ACTIVE
-  TERMINATED
   EXPIRED
+  EXTENDED
+  RENEWED
+  INACTIVE
+}
+
+enum TermType {
+  MONTH_TO_MONTH
+  THREE_MONTH
+  SIX_MONTH
+  TWELVE_MONTH
+  CUSTOM
+}
+
+enum TenantRole {
+  PRIMARY
+  OCCUPANT
 }
 
 enum LedgerEntryType {
@@ -109,6 +124,8 @@ model User {
   auditLogs          AuditLog[]         @relation("AuditActor")
   documents          Document[]
   managerAssignments ManagerPropertyAssignment[]
+  legalAcceptances   LegalAcceptance[]
+  leaseTenants       LeaseTenant[]
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -173,12 +190,13 @@ model Lease {
   unitId          String
   unit            Unit          @relation(fields: [unitId], references: [id])
 
+  termType        TermType      @default(TWELVE_MONTH)
   startDate       DateTime
   endDate         DateTime
-  rentAmount      Int           // cents
   depositAmount   Int?
-  status          LeaseStatus   @default(ACTIVE)
+  status          LeaseStatus   @default(DRAFT)
 
+  leaseTenants    LeaseTenant[]
   tenants         TenantProfile[]
   ledgerEntries   LedgerEntry[]
   payments        Payment[]
@@ -188,6 +206,20 @@ model Lease {
 
   @@index([organizationId])
   @@index([unitId])
+}
+
+model LeaseTenant {
+  leaseId    String
+  lease      Lease       @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  tenantId   String
+  tenant     User        @relation(fields: [tenantId], references: [id])
+
+  role       TenantRole  @default(PRIMARY)
+  createdAt  DateTime    @default(now())
+
+  @@id([leaseId, tenantId])
+  @@index([tenantId])
 }
 
 model TenantProfile {
@@ -372,4 +404,22 @@ model Subscription {
 
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
+}
+
+model LegalAcceptance {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  documentSlug    String   // e.g. "terms", "privacy", "owner-agreement"
+  documentVersion String   // e.g. "2026-03-v1"
+  documentHash    String?  // optional content hash for auditability
+  acceptedAt      DateTime @default(now())
+  source          String   // e.g. "owner-signup", "tenant-invite"
+  ipAddress       String?
+  userAgent       String?
+
+  @@unique([userId, documentSlug, documentVersion, source])
+  @@index([userId])
+  @@index([userId, documentSlug])
 }

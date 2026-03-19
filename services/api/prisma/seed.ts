@@ -29,14 +29,14 @@ async function main() {
     },
   });
 
-  // Property manager organization
+  // Second demo organization (landlord)
   const pmOrg = await prisma.organization.upsert({
     where: { subdomain: 'pm-demo' },
     update: {
       plan: 'basic',
     },
     create: {
-      type: OrganizationType.PM_COMPANY,
+      type: OrganizationType.LANDLORD,
       name: 'Demo PM Org',
       plan: 'basic',
       subdomain: 'pm-demo',
@@ -54,14 +54,14 @@ async function main() {
     update: {
       name: 'Alice Admin',
       cognitoSub: 'dev-admin-landlord',
-      role: UserRole.ORG_ADMIN,
+      role: UserRole.OWNER,
     },
     create: {
       organizationId: landlordOrg.id,
       email: 'admin@landlord.local',
       name: 'Alice Admin',
       cognitoSub: 'dev-admin-landlord',
-      role: UserRole.ORG_ADMIN,
+      role: UserRole.OWNER,
     },
   });
 
@@ -193,27 +193,27 @@ async function main() {
 
   const pmAdmin = await prisma.user.upsert({
     where: { organizationId_email: { organizationId: pmOrg.id, email: 'admin@pm.local' } },
-    update: { name: 'Paula PM', cognitoSub: 'dev-admin-pm', role: UserRole.ORG_ADMIN },
-    create: { organizationId: pmOrg.id, email: 'admin@pm.local', name: 'Paula PM', cognitoSub: 'dev-admin-pm', role: UserRole.ORG_ADMIN },
+    update: { name: 'Paula PM', cognitoSub: 'dev-admin-pm', role: UserRole.OWNER },
+    create: { organizationId: pmOrg.id, email: 'admin@pm.local', name: 'Paula PM', cognitoSub: 'dev-admin-pm', role: UserRole.OWNER },
   });
 
   const pmAlice = await prisma.user.upsert({
     where: { organizationId_email: { organizationId: pmOrg.id, email: 'alice@pm.local' } },
-    update: { name: 'Alice Manager', cognitoSub: 'dev-pm-alice', role: UserRole.PM_STAFF },
-    create: { organizationId: pmOrg.id, email: 'alice@pm.local', name: 'Alice Manager', cognitoSub: 'dev-pm-alice', role: UserRole.PM_STAFF },
+    update: { name: 'Alice Manager', cognitoSub: 'dev-pm-alice', role: UserRole.OWNER },
+    create: { organizationId: pmOrg.id, email: 'alice@pm.local', name: 'Alice Manager', cognitoSub: 'dev-pm-alice', role: UserRole.OWNER },
   });
 
   const pmBob = await prisma.user.upsert({
     where: { organizationId_email: { organizationId: pmOrg.id, email: 'bob@pm.local' } },
-    update: { name: 'Bob Manager', cognitoSub: 'dev-pm-bob', role: UserRole.PM_STAFF },
-    create: { organizationId: pmOrg.id, email: 'bob@pm.local', name: 'Bob Manager', cognitoSub: 'dev-pm-bob', role: UserRole.PM_STAFF },
+    update: { name: 'Bob Manager', cognitoSub: 'dev-pm-bob', role: UserRole.OWNER },
+    create: { organizationId: pmOrg.id, email: 'bob@pm.local', name: 'Bob Manager', cognitoSub: 'dev-pm-bob', role: UserRole.OWNER },
   });
 
-  // PM_STAFF with zero assignments — tests empty state
+  // OWNER with zero assignments — tests empty state
   await prisma.user.upsert({
     where: { organizationId_email: { organizationId: pmOrg.id, email: 'carol@pm.local' } },
-    update: { name: 'Carol Manager', cognitoSub: 'dev-pm-carol', role: UserRole.PM_STAFF },
-    create: { organizationId: pmOrg.id, email: 'carol@pm.local', name: 'Carol Manager', cognitoSub: 'dev-pm-carol', role: UserRole.PM_STAFF },
+    update: { name: 'Carol Manager', cognitoSub: 'dev-pm-carol', role: UserRole.OWNER },
+    create: { organizationId: pmOrg.id, email: 'carol@pm.local', name: 'Carol Manager', cognitoSub: 'dev-pm-carol', role: UserRole.OWNER },
   });
 
   const pmOwner = await prisma.user.upsert({
@@ -266,7 +266,7 @@ async function main() {
     },
   });
 
-  // ── Same-org UNASSIGNED property (must NOT be visible to PM_STAFF) ──
+  // ── Same-org UNASSIGNED property (tests assignment-based isolation) ──
 
   const pmPropUnassigned = await prisma.property.create({
     data: {
@@ -280,7 +280,7 @@ async function main() {
     },
   });
 
-  // Unit + lease on unassigned property — must be invisible to PM_STAFF
+  // Unit + lease on unassigned property — tests assignment-based isolation
   const unassignedUnit = await prisma.unit.create({
     data: {
       organizationId: pmOrg.id,

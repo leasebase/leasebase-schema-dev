@@ -1,6 +1,8 @@
-# Leasebase Architecture
+# Leasebase Architecture (LEGACY — Historical Reference Only)
 
-Leasebase is a multi-tenant, cloud-native property management SaaS. It is implemented as a TypeScript monorepo with web, mobile, API, and infrastructure code.
+> **⚠️ This document describes the original monorepo architecture which has been superseded by the v2 microservices architecture.** For the current architecture, see `leasebase_all/ARCHITECTURE.md`.
+
+Leasebase is a multi-tenant, cloud-native property management SaaS. This document describes the original TypeScript monorepo layout.
 
 ## High-level system architecture
 
